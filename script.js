@@ -37,14 +37,39 @@ function runCommand() {
     return;
   }
 
-  // 1. 判断颜色
-  let color = getColor(command);
+  // 保存图片
+  if (command.includes("保存")) {
+    saveImage();
+    input.value = "";
+    return;
+  }
 
-  // 2. 判断位置
+  // 判断颜色和位置
+  let color = getColor(command);
   let position = getPosition(command);
 
-  // 3. 判断图形
-  if (command.includes("圆")) {
+  // 优先判断组合图案
+  if (command.includes("太阳")) {
+    saveCanvasState();
+    drawSun(position);
+    message.innerText = "已在" + getChinesePosition(position) + "绘制一个太阳。";
+  } else if (command.includes("房子") || command.includes("房屋")) {
+    saveCanvasState();
+    drawHouse(position);
+    message.innerText = "已在" + getChinesePosition(position) + "绘制一座房子。";
+  } else if (command.includes("笑脸") || command.includes("表情")) {
+    saveCanvasState();
+    drawSmile(position);
+    message.innerText = "已在" + getChinesePosition(position) + "绘制一个笑脸。";
+  } else if (command.includes("云") || command.includes("云朵")) {
+    saveCanvasState();
+    drawCloud(position);
+    message.innerText = "已在" + getChinesePosition(position) + "绘制一朵云。";
+  } else if (command.includes("星星") || command.includes("五角星")) {
+    saveCanvasState();
+    drawStar(position);
+    message.innerText = "已在" + getChinesePosition(position) + "绘制一颗星星。";
+  } else if (command.includes("圆")) {
     saveCanvasState();
     drawCircle(color, position);
     message.innerText = "已在" + getChinesePosition(position) + "绘制一个" + getChineseColor(color) + "圆形。";
@@ -56,8 +81,15 @@ function runCommand() {
     saveCanvasState();
     drawRectangle(color, position);
     message.innerText = "已在" + getChinesePosition(position) + "绘制一个" + getChineseColor(color) + "矩形。";
+  } else if (
+    command.includes("三角形") ||
+    command.includes("三角")
+  ) {
+    saveCanvasState();
+    drawTriangle(color, position);
+    message.innerText = "已在" + getChinesePosition(position) + "绘制一个" + getChineseColor(color) + "三角形。";
   } else {
-    message.innerText = "暂时无法识别该指令，请尝试：在左边画一个红色圆形 / 在右边画一个蓝色矩形 / 撤销 / 清空画布";
+    message.innerText = "暂时无法识别该指令，请尝试：画一个太阳 / 画一座房子 / 画一个笑脸 / 在左边画一个红色圆形 / 保存图片";
   }
 
   input.value = "";
@@ -78,7 +110,7 @@ function startVoiceRecognition() {
   recognition.continuous = false;
   recognition.interimResults = false;
 
-  message.innerText = "正在聆听，请说出绘图指令，例如：在左边画一个红色圆形";
+  message.innerText = "正在聆听，请说出绘图指令，例如：画一个太阳";
 
   recognition.start();
 
@@ -89,7 +121,6 @@ function startVoiceRecognition() {
     input.value = voiceText;
     message.innerText = "语音识别结果：" + voiceText;
 
-    // 识别完成后，自动执行绘图指令
     runCommand();
   };
 
@@ -116,6 +147,10 @@ function getColor(command) {
     return "yellow";
   } else if (command.includes("紫")) {
     return "purple";
+  } else if (command.includes("橙")) {
+    return "orange";
+  } else if (command.includes("粉")) {
+    return "pink";
   } else {
     return "black";
   }
@@ -145,9 +180,9 @@ function getCoordinates(position) {
   } else if (position === "right") {
     return { x: 520, y: 200 };
   } else if (position === "top") {
-    return { x: 350, y: 100 };
+    return { x: 350, y: 110 };
   } else if (position === "bottom") {
-    return { x: 350, y: 300 };
+    return { x: 350, y: 290 };
   } else {
     return { x: 350, y: 200 };
   }
@@ -170,6 +205,169 @@ function drawRectangle(color, position) {
 
   ctx.fillStyle = color;
   ctx.fillRect(point.x - 60, point.y - 50, 120, 100);
+}
+
+// 画三角形
+function drawTriangle(color, position) {
+  const point = getCoordinates(position);
+
+  ctx.beginPath();
+  ctx.moveTo(point.x, point.y - 70);
+  ctx.lineTo(point.x - 70, point.y + 60);
+  ctx.lineTo(point.x + 70, point.y + 60);
+  ctx.closePath();
+
+  ctx.fillStyle = color;
+  ctx.fill();
+}
+
+// 画太阳：圆形 + 光线
+function drawSun(position) {
+  const point = getCoordinates(position);
+
+  ctx.beginPath();
+  ctx.arc(point.x, point.y, 45, 0, Math.PI * 2);
+  ctx.fillStyle = "yellow";
+  ctx.fill();
+  ctx.closePath();
+
+  ctx.strokeStyle = "orange";
+  ctx.lineWidth = 4;
+
+  for (let i = 0; i < 12; i++) {
+    const angle = (Math.PI * 2 / 12) * i;
+    const startX = point.x + Math.cos(angle) * 60;
+    const startY = point.y + Math.sin(angle) * 60;
+    const endX = point.x + Math.cos(angle) * 85;
+    const endY = point.y + Math.sin(angle) * 85;
+
+    ctx.beginPath();
+    ctx.moveTo(startX, startY);
+    ctx.lineTo(endX, endY);
+    ctx.stroke();
+  }
+}
+
+// 画房子：墙体 + 屋顶 + 门 + 窗户
+function drawHouse(position) {
+  const point = getCoordinates(position);
+
+  // 墙体
+  ctx.fillStyle = "#f4c27a";
+  ctx.fillRect(point.x - 70, point.y - 20, 140, 100);
+
+  // 屋顶
+  ctx.beginPath();
+  ctx.moveTo(point.x - 90, point.y - 20);
+  ctx.lineTo(point.x, point.y - 100);
+  ctx.lineTo(point.x + 90, point.y - 20);
+  ctx.closePath();
+  ctx.fillStyle = "#c0392b";
+  ctx.fill();
+
+  // 门
+  ctx.fillStyle = "#8b4513";
+  ctx.fillRect(point.x - 20, point.y + 25, 40, 55);
+
+  // 窗户
+  ctx.fillStyle = "#87ceeb";
+  ctx.fillRect(point.x - 55, point.y + 5, 30, 30);
+  ctx.fillRect(point.x + 25, point.y + 5, 30, 30);
+
+  // 边框
+  ctx.strokeStyle = "#333";
+  ctx.lineWidth = 2;
+  ctx.strokeRect(point.x - 70, point.y - 20, 140, 100);
+}
+
+// 画笑脸：脸 + 眼睛 + 嘴巴
+function drawSmile(position) {
+  const point = getCoordinates(position);
+
+  // 脸
+  ctx.beginPath();
+  ctx.arc(point.x, point.y, 70, 0, Math.PI * 2);
+  ctx.fillStyle = "yellow";
+  ctx.fill();
+  ctx.strokeStyle = "#333";
+  ctx.lineWidth = 3;
+  ctx.stroke();
+  ctx.closePath();
+
+  // 左眼
+  ctx.beginPath();
+  ctx.arc(point.x - 25, point.y - 20, 8, 0, Math.PI * 2);
+  ctx.fillStyle = "black";
+  ctx.fill();
+  ctx.closePath();
+
+  // 右眼
+  ctx.beginPath();
+  ctx.arc(point.x + 25, point.y - 20, 8, 0, Math.PI * 2);
+  ctx.fillStyle = "black";
+  ctx.fill();
+  ctx.closePath();
+
+  // 嘴巴
+  ctx.beginPath();
+  ctx.arc(point.x, point.y + 5, 35, 0, Math.PI);
+  ctx.strokeStyle = "black";
+  ctx.lineWidth = 4;
+  ctx.stroke();
+  ctx.closePath();
+}
+
+// 画云朵：多个圆形组合
+function drawCloud(position) {
+  const point = getCoordinates(position);
+
+  ctx.fillStyle = "#dff6ff";
+
+  ctx.beginPath();
+  ctx.arc(point.x - 50, point.y + 10, 35, 0, Math.PI * 2);
+  ctx.arc(point.x - 15, point.y - 15, 45, 0, Math.PI * 2);
+  ctx.arc(point.x + 30, point.y, 40, 0, Math.PI * 2);
+  ctx.arc(point.x + 65, point.y + 15, 30, 0, Math.PI * 2);
+  ctx.fill();
+
+  ctx.strokeStyle = "#7f8c8d";
+  ctx.lineWidth = 2;
+  ctx.stroke();
+}
+
+// 画星星
+function drawStar(position) {
+  const point = getCoordinates(position);
+  const outerRadius = 70;
+  const innerRadius = 30;
+  const spikes = 5;
+
+  let rotation = Math.PI / 2 * 3;
+  let x = point.x;
+  let y = point.y;
+
+  ctx.beginPath();
+  ctx.moveTo(point.x, point.y - outerRadius);
+
+  for (let i = 0; i < spikes; i++) {
+    x = point.x + Math.cos(rotation) * outerRadius;
+    y = point.y + Math.sin(rotation) * outerRadius;
+    ctx.lineTo(x, y);
+    rotation += Math.PI / spikes;
+
+    x = point.x + Math.cos(rotation) * innerRadius;
+    y = point.y + Math.sin(rotation) * innerRadius;
+    ctx.lineTo(x, y);
+    rotation += Math.PI / spikes;
+  }
+
+  ctx.lineTo(point.x, point.y - outerRadius);
+  ctx.closePath();
+  ctx.fillStyle = "gold";
+  ctx.fill();
+  ctx.strokeStyle = "orange";
+  ctx.lineWidth = 3;
+  ctx.stroke();
 }
 
 // 清空画布
@@ -198,7 +396,8 @@ function undo() {
     return;
   }
 
-  const previousState = history.pop();
+  history.pop();
+  const previousState = history[history.length - 1];
   const img = new Image();
 
   img.onload = function () {
@@ -210,6 +409,29 @@ function undo() {
   img.src = previousState;
 }
 
+// 保存画布为图片
+function saveImage() {
+  const tempCanvas = document.createElement("canvas");
+  const tempCtx = tempCanvas.getContext("2d");
+
+  tempCanvas.width = canvas.width;
+  tempCanvas.height = canvas.height;
+
+  // 添加白色背景，避免保存出来是透明背景
+  tempCtx.fillStyle = "white";
+  tempCtx.fillRect(0, 0, tempCanvas.width, tempCanvas.height);
+
+  // 把当前画布内容画到临时画布上
+  tempCtx.drawImage(canvas, 0, 0);
+
+  const link = document.createElement("a");
+  link.download = "voicedraw.png";
+  link.href = tempCanvas.toDataURL("image/png");
+  link.click();
+
+  message.innerText = "已保存当前画布为图片。";
+}
+
 // 英文颜色转中文
 function getChineseColor(color) {
   if (color === "red") return "红色";
@@ -218,6 +440,8 @@ function getChineseColor(color) {
   if (color === "black") return "黑色";
   if (color === "yellow") return "黄色";
   if (color === "purple") return "紫色";
+  if (color === "orange") return "橙色";
+  if (color === "pink") return "粉色";
   return "";
 }
 
