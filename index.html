@@ -1,0 +1,26 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <title>VoiceDraw AI 语音绘图助手</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <h1>VoiceDraw AI 语音绘图助手</h1>
+
+  <p class="desc">
+    输入指令，例如：画一个红色圆形、画一个蓝色矩形、清空画布
+  </p>
+
+  <div class="control-box">
+    <input id="commandInput" type="text" placeholder="请输入绘图指令">
+    <button onclick="runCommand()">执行指令</button>
+  </div>
+
+  <canvas id="drawCanvas" width="700" height="400"></canvas>
+
+  <p id="message">等待输入指令...</p>
+
+  <script src="script.js"></script>
+</body>
+</html>

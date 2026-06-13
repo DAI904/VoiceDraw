@@ -1,0 +1,57 @@
+body {
+  font-family: Arial, "Microsoft YaHei", sans-serif;
+  text-align: center;
+  background-color: #f5f7fb;
+  margin: 0;
+  padding: 30px;
+}
+
+h1 {
+  color: #333;
+}
+
+.desc {
+  color: #666;
+  font-size: 16px;
+}
+
+.control-box {
+  margin: 20px 0;
+}
+
+input {
+  width: 360px;
+  height: 38px;
+  padding: 0 12px;
+  font-size: 16px;
+  border: 1px solid #ccc;
+  border-radius: 6px;
+}
+
+button {
+  height: 40px;
+  padding: 0 18px;
+  font-size: 16px;
+  margin-left: 8px;
+  border: none;
+  border-radius: 6px;
+  background-color: #4a6cf7;
+  color: white;
+  cursor: pointer;
+}
+
+button:hover {
+  background-color: #3554d1;
+}
+
+canvas {
+  background-color: white;
+  border: 2px solid #333;
+  border-radius: 8px;
+  margin-top: 20px;
+}
+
+#message {
+  margin-top: 15px;
+  color: #444;
+}
