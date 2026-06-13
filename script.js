@@ -1,15 +1,11 @@
-// 获取页面中的画布
 const canvas = document.getElementById("drawCanvas");
 const ctx = canvas.getContext("2d");
 const message = document.getElementById("message");
 
-// 用来保存每一步画布状态，方便撤销
 let history = [];
 
-// 页面加载后，先保存一张空白画布
 saveCanvasState();
 
-// 执行用户输入的指令
 function runCommand() {
   const input = document.getElementById("commandInput");
   const command = input.value.trim();
@@ -21,7 +17,6 @@ function runCommand() {
 
   message.innerText = "识别到指令：" + command;
 
-  // 清空画布
   if (command.includes("清空")) {
     saveCanvasState();
     clearCanvas();
@@ -30,26 +25,31 @@ function runCommand() {
     return;
   }
 
-  // 撤销上一步
   if (command.includes("撤销") || command.includes("返回上一步")) {
     undo();
     input.value = "";
     return;
   }
 
-  // 保存图片
   if (command.includes("保存")) {
     saveImage();
     input.value = "";
     return;
   }
 
-  // 判断颜色和位置
   let color = getColor(command);
   let position = getPosition(command);
 
-  // 优先判断组合图案
-  if (command.includes("太阳")) {
+  if (
+    command.includes("风景") ||
+    command.includes("一幅画") ||
+    command.includes("场景") ||
+    command.includes("完整画")
+  ) {
+    saveCanvasState();
+    drawLandscape();
+    message.innerText = "已生成一幅完整风景画。";
+  } else if (command.includes("太阳")) {
     saveCanvasState();
     drawSun(position);
     message.innerText = "已在" + getChinesePosition(position) + "绘制一个太阳。";
@@ -89,13 +89,12 @@ function runCommand() {
     drawTriangle(color, position);
     message.innerText = "已在" + getChinesePosition(position) + "绘制一个" + getChineseColor(color) + "三角形。";
   } else {
-    message.innerText = "暂时无法识别该指令，请尝试：画一个太阳 / 画一座房子 / 画一个笑脸 / 在左边画一个红色圆形 / 保存图片";
+    message.innerText = "暂时无法识别该指令，请尝试：画一幅风景画 / 画一个太阳 / 画一座房子 / 在左边画一个红色圆形 / 保存图片";
   }
 
   input.value = "";
 }
 
-// 开始语音识别
 function startVoiceRecognition() {
   const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
 
@@ -110,7 +109,7 @@ function startVoiceRecognition() {
   recognition.continuous = false;
   recognition.interimResults = false;
 
-  message.innerText = "正在聆听，请说出绘图指令，例如：画一个太阳";
+  message.innerText = "正在聆听，请说出绘图指令，例如：画一幅风景画";
 
   recognition.start();
 
@@ -133,7 +132,6 @@ function startVoiceRecognition() {
   };
 }
 
-// 判断颜色
 function getColor(command) {
   if (command.includes("红")) {
     return "red";
@@ -156,7 +154,6 @@ function getColor(command) {
   }
 }
 
-// 判断位置
 function getPosition(command) {
   if (command.includes("左")) {
     return "left";
@@ -173,7 +170,6 @@ function getPosition(command) {
   }
 }
 
-// 根据位置获取坐标
 function getCoordinates(position) {
   if (position === "left") {
     return { x: 180, y: 200 };
@@ -188,7 +184,6 @@ function getCoordinates(position) {
   }
 }
 
-// 画圆形
 function drawCircle(color, position) {
   const point = getCoordinates(position);
 
@@ -199,7 +194,6 @@ function drawCircle(color, position) {
   ctx.closePath();
 }
 
-// 画矩形
 function drawRectangle(color, position) {
   const point = getCoordinates(position);
 
@@ -207,7 +201,6 @@ function drawRectangle(color, position) {
   ctx.fillRect(point.x - 60, point.y - 50, 120, 100);
 }
 
-// 画三角形
 function drawTriangle(color, position) {
   const point = getCoordinates(position);
 
@@ -221,7 +214,6 @@ function drawTriangle(color, position) {
   ctx.fill();
 }
 
-// 画太阳：圆形 + 光线
 function drawSun(position) {
   const point = getCoordinates(position);
 
@@ -248,15 +240,12 @@ function drawSun(position) {
   }
 }
 
-// 画房子：墙体 + 屋顶 + 门 + 窗户
 function drawHouse(position) {
   const point = getCoordinates(position);
 
-  // 墙体
   ctx.fillStyle = "#f4c27a";
   ctx.fillRect(point.x - 70, point.y - 20, 140, 100);
 
-  // 屋顶
   ctx.beginPath();
   ctx.moveTo(point.x - 90, point.y - 20);
   ctx.lineTo(point.x, point.y - 100);
@@ -265,26 +254,21 @@ function drawHouse(position) {
   ctx.fillStyle = "#c0392b";
   ctx.fill();
 
-  // 门
   ctx.fillStyle = "#8b4513";
   ctx.fillRect(point.x - 20, point.y + 25, 40, 55);
 
-  // 窗户
   ctx.fillStyle = "#87ceeb";
   ctx.fillRect(point.x - 55, point.y + 5, 30, 30);
   ctx.fillRect(point.x + 25, point.y + 5, 30, 30);
 
-  // 边框
   ctx.strokeStyle = "#333";
   ctx.lineWidth = 2;
   ctx.strokeRect(point.x - 70, point.y - 20, 140, 100);
 }
 
-// 画笑脸：脸 + 眼睛 + 嘴巴
 function drawSmile(position) {
   const point = getCoordinates(position);
 
-  // 脸
   ctx.beginPath();
   ctx.arc(point.x, point.y, 70, 0, Math.PI * 2);
   ctx.fillStyle = "yellow";
@@ -294,21 +278,18 @@ function drawSmile(position) {
   ctx.stroke();
   ctx.closePath();
 
-  // 左眼
   ctx.beginPath();
   ctx.arc(point.x - 25, point.y - 20, 8, 0, Math.PI * 2);
   ctx.fillStyle = "black";
   ctx.fill();
   ctx.closePath();
 
-  // 右眼
   ctx.beginPath();
   ctx.arc(point.x + 25, point.y - 20, 8, 0, Math.PI * 2);
   ctx.fillStyle = "black";
   ctx.fill();
   ctx.closePath();
 
-  // 嘴巴
   ctx.beginPath();
   ctx.arc(point.x, point.y + 5, 35, 0, Math.PI);
   ctx.strokeStyle = "black";
@@ -317,7 +298,6 @@ function drawSmile(position) {
   ctx.closePath();
 }
 
-// 画云朵：多个圆形组合
 function drawCloud(position) {
   const point = getCoordinates(position);
 
@@ -335,7 +315,6 @@ function drawCloud(position) {
   ctx.stroke();
 }
 
-// 画星星
 function drawStar(position) {
   const point = getCoordinates(position);
   const outerRadius = 70;
@@ -370,25 +349,197 @@ function drawStar(position) {
   ctx.stroke();
 }
 
-// 清空画布
+// 一键绘制完整风景画
+function drawLandscape() {
+  clearCanvas();
+
+  // 天空
+  ctx.fillStyle = "#87ceeb";
+  ctx.fillRect(0, 0, canvas.width, 260);
+
+  // 草地
+  ctx.fillStyle = "#7ec850";
+  ctx.fillRect(0, 260, canvas.width, 140);
+
+  // 太阳
+  drawSunAt(90, 80);
+
+  // 云朵
+  drawCloudAt(230, 80);
+  drawCloudAt(520, 100);
+
+  // 远山
+  drawMountain(150, 260, 120, "#8e9aaf");
+  drawMountain(330, 260, 150, "#6c7a89");
+  drawMountain(520, 260, 130, "#8e9aaf");
+
+  // 房子
+  drawHouseAt(470, 250);
+
+  // 树
+  drawTreeAt(120, 270);
+  drawTreeAt(610, 280);
+
+  // 小河
+  drawRiver();
+
+  // 小花
+  drawFlowerAt(210, 335, "red");
+  drawFlowerAt(260, 360, "yellow");
+  drawFlowerAt(580, 345, "pink");
+  drawFlowerAt(640, 365, "purple");
+
+  // 小路
+  drawPath();
+}
+
+function drawSunAt(x, y) {
+  ctx.beginPath();
+  ctx.arc(x, y, 38, 0, Math.PI * 2);
+  ctx.fillStyle = "yellow";
+  ctx.fill();
+  ctx.closePath();
+
+  ctx.strokeStyle = "orange";
+  ctx.lineWidth = 4;
+
+  for (let i = 0; i < 12; i++) {
+    const angle = (Math.PI * 2 / 12) * i;
+    ctx.beginPath();
+    ctx.moveTo(x + Math.cos(angle) * 50, y + Math.sin(angle) * 50);
+    ctx.lineTo(x + Math.cos(angle) * 75, y + Math.sin(angle) * 75);
+    ctx.stroke();
+  }
+}
+
+function drawCloudAt(x, y) {
+  ctx.fillStyle = "white";
+  ctx.beginPath();
+  ctx.arc(x - 45, y + 10, 28, 0, Math.PI * 2);
+  ctx.arc(x - 10, y - 10, 38, 0, Math.PI * 2);
+  ctx.arc(x + 35, y, 32, 0, Math.PI * 2);
+  ctx.arc(x + 65, y + 12, 25, 0, Math.PI * 2);
+  ctx.fill();
+}
+
+function drawMountain(x, baseY, height, color) {
+  ctx.beginPath();
+  ctx.moveTo(x - 120, baseY);
+  ctx.lineTo(x, baseY - height);
+  ctx.lineTo(x + 120, baseY);
+  ctx.closePath();
+  ctx.fillStyle = color;
+  ctx.fill();
+
+  ctx.beginPath();
+  ctx.moveTo(x - 35, baseY - height + 35);
+  ctx.lineTo(x, baseY - height);
+  ctx.lineTo(x + 35, baseY - height + 35);
+  ctx.closePath();
+  ctx.fillStyle = "white";
+  ctx.fill();
+}
+
+function drawHouseAt(x, y) {
+  ctx.fillStyle = "#f4c27a";
+  ctx.fillRect(x - 60, y - 20, 120, 90);
+
+  ctx.beginPath();
+  ctx.moveTo(x - 80, y - 20);
+  ctx.lineTo(x, y - 90);
+  ctx.lineTo(x + 80, y - 20);
+  ctx.closePath();
+  ctx.fillStyle = "#c0392b";
+  ctx.fill();
+
+  ctx.fillStyle = "#8b4513";
+  ctx.fillRect(x - 18, y + 25, 36, 45);
+
+  ctx.fillStyle = "#87ceeb";
+  ctx.fillRect(x - 48, y + 5, 28, 28);
+  ctx.fillRect(x + 20, y + 5, 28, 28);
+
+  ctx.strokeStyle = "#333";
+  ctx.lineWidth = 2;
+  ctx.strokeRect(x - 60, y - 20, 120, 90);
+}
+
+function drawTreeAt(x, y) {
+  ctx.fillStyle = "#8b4513";
+  ctx.fillRect(x - 12, y, 24, 75);
+
+  ctx.beginPath();
+  ctx.arc(x, y - 20, 45, 0, Math.PI * 2);
+  ctx.fillStyle = "#2ecc71";
+  ctx.fill();
+
+  ctx.beginPath();
+  ctx.arc(x - 30, y, 35, 0, Math.PI * 2);
+  ctx.arc(x + 30, y, 35, 0, Math.PI * 2);
+  ctx.fillStyle = "#27ae60";
+  ctx.fill();
+}
+
+function drawRiver() {
+  ctx.beginPath();
+  ctx.moveTo(300, 400);
+  ctx.bezierCurveTo(340, 350, 330, 320, 370, 285);
+  ctx.bezierCurveTo(410, 250, 470, 270, 500, 250);
+  ctx.lineTo(570, 260);
+  ctx.bezierCurveTo(520, 300, 470, 330, 450, 400);
+  ctx.closePath();
+  ctx.fillStyle = "#4fc3f7";
+  ctx.fill();
+
+  ctx.strokeStyle = "#0288d1";
+  ctx.lineWidth = 3;
+  ctx.stroke();
+}
+
+function drawFlowerAt(x, y, color) {
+  ctx.fillStyle = "#2e7d32";
+  ctx.fillRect(x - 2, y, 4, 25);
+
+  ctx.fillStyle = color;
+  ctx.beginPath();
+  ctx.arc(x - 8, y, 7, 0, Math.PI * 2);
+  ctx.arc(x + 8, y, 7, 0, Math.PI * 2);
+  ctx.arc(x, y - 8, 7, 0, Math.PI * 2);
+  ctx.arc(x, y + 8, 7, 0, Math.PI * 2);
+  ctx.fill();
+
+  ctx.beginPath();
+  ctx.arc(x, y, 5, 0, Math.PI * 2);
+  ctx.fillStyle = "yellow";
+  ctx.fill();
+}
+
+function drawPath() {
+  ctx.beginPath();
+  ctx.moveTo(430, 400);
+  ctx.lineTo(500, 400);
+  ctx.lineTo(490, 320);
+  ctx.lineTo(460, 320);
+  ctx.closePath();
+  ctx.fillStyle = "#d2b48c";
+  ctx.fill();
+}
+
 function clearCanvas() {
   ctx.clearRect(0, 0, canvas.width, canvas.height);
 }
 
-// 点击按钮清空画布
 function clearCanvasByButton() {
   saveCanvasState();
   clearCanvas();
   message.innerText = "已通过按钮清空画布。";
 }
 
-// 保存当前画布状态
 function saveCanvasState() {
   const imageData = canvas.toDataURL();
   history.push(imageData);
 }
 
-// 撤销上一步
 function undo() {
   if (history.length <= 1) {
     clearCanvas();
@@ -409,7 +560,6 @@ function undo() {
   img.src = previousState;
 }
 
-// 保存画布为图片
 function saveImage() {
   const tempCanvas = document.createElement("canvas");
   const tempCtx = tempCanvas.getContext("2d");
@@ -417,11 +567,8 @@ function saveImage() {
   tempCanvas.width = canvas.width;
   tempCanvas.height = canvas.height;
 
-  // 添加白色背景，避免保存出来是透明背景
   tempCtx.fillStyle = "white";
   tempCtx.fillRect(0, 0, tempCanvas.width, tempCanvas.height);
-
-  // 把当前画布内容画到临时画布上
   tempCtx.drawImage(canvas, 0, 0);
 
   const link = document.createElement("a");
@@ -432,7 +579,6 @@ function saveImage() {
   message.innerText = "已保存当前画布为图片。";
 }
 
-// 英文颜色转中文
 function getChineseColor(color) {
   if (color === "red") return "红色";
   if (color === "blue") return "蓝色";
@@ -445,7 +591,6 @@ function getChineseColor(color) {
   return "";
 }
 
-// 英文位置转中文
 function getChinesePosition(position) {
   if (position === "left") return "左边";
   if (position === "right") return "右边";
