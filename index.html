@@ -13,10 +13,12 @@
   </p>
 
   <div class="control-box">
-    <input id="commandInput" type="text" placeholder="请输入绘图指令">
-    <button onclick="runCommand()">执行指令</button>
-  </div>
-
+  <input id="commandInput" type="text" placeholder="请输入绘图指令">
+  <button onclick="runCommand()">执行指令</button>
+  <button onclick="startVoiceRecognition()">开始语音识别</button>
+  <button onclick="undo()">撤销</button>
+  <button onclick="clearCanvasByButton()">清空画布</button>
+</div>
   <canvas id="drawCanvas" width="700" height="400"></canvas>
 
   <p id="message">等待输入指令...</p>

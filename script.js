@@ -63,6 +63,45 @@ function runCommand() {
   input.value = "";
 }
 
+// 开始语音识别
+function startVoiceRecognition() {
+  const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+
+  if (!SpeechRecognition) {
+    message.innerText = "当前浏览器不支持语音识别，请使用 Chrome 或 Edge 浏览器测试。";
+    return;
+  }
+
+  const recognition = new SpeechRecognition();
+
+  recognition.lang = "zh-CN";
+  recognition.continuous = false;
+  recognition.interimResults = false;
+
+  message.innerText = "正在聆听，请说出绘图指令，例如：在左边画一个红色圆形";
+
+  recognition.start();
+
+  recognition.onresult = function (event) {
+    const voiceText = event.results[0][0].transcript;
+    const input = document.getElementById("commandInput");
+
+    input.value = voiceText;
+    message.innerText = "语音识别结果：" + voiceText;
+
+    // 识别完成后，自动执行绘图指令
+    runCommand();
+  };
+
+  recognition.onerror = function (event) {
+    message.innerText = "语音识别失败，请重试。错误信息：" + event.error;
+  };
+
+  recognition.onend = function () {
+    console.log("语音识别结束");
+  };
+}
+
 // 判断颜色
 function getColor(command) {
   if (command.includes("红")) {
@@ -136,6 +175,13 @@ function drawRectangle(color, position) {
 // 清空画布
 function clearCanvas() {
   ctx.clearRect(0, 0, canvas.width, canvas.height);
+}
+
+// 点击按钮清空画布
+function clearCanvasByButton() {
+  saveCanvasState();
+  clearCanvas();
+  message.innerText = "已通过按钮清空画布。";
 }
 
 // 保存当前画布状态
