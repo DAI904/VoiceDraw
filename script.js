@@ -31,9 +31,11 @@ function startVoiceControl() {
       if (event.results[i].isFinal) {
         const command = event.results[i][0].transcript.trim();
 
-        voiceText.innerText = "语音识别结果：" + command;
-        message.innerText = "正在执行语音指令：" + command;
+        if (voiceText) {
+          voiceText.innerText = "语音识别结果：" + command;
+        }
 
+        message.innerText = "正在执行语音指令：" + command;
         runVoiceCommand(command);
       }
     }
@@ -73,6 +75,11 @@ function stopVoiceControl() {
   message.innerText = "语音控制已停止。";
 }
 
+// 兼容旧按钮名称
+function startVoiceRecognition() {
+  startVoiceControl();
+}
+
 // 执行语音指令
 function runVoiceCommand(command) {
   if (!command) {
@@ -82,17 +89,26 @@ function runVoiceCommand(command) {
   if (
     command.includes("停止语音") ||
     command.includes("停止识别") ||
+    command.includes("停止语音控制") ||
     command.includes("结束语音")
   ) {
     stopVoiceControl();
     return;
   }
 
+  const startTime = performance.now();
+
   const commandList = splitComplexCommand(command);
 
   for (let i = 0; i < commandList.length; i++) {
     executeSingleCommand(commandList[i]);
   }
+
+  const endTime = performance.now();
+  const usedTime = Math.round(endTime - startTime);
+
+  message.innerText = message.innerText + " 指令解析与绘图执行耗时：" + usedTime + " ms。";
+  console.log("本次指令执行耗时：" + usedTime + "ms");
 }
 
 // 拆解复杂指令
@@ -106,6 +122,11 @@ function splitComplexCommand(command) {
 
 // 执行单条指令
 function executeSingleCommand(command) {
+  if (command.includes("帮助") || command.includes("怎么用")) {
+    message.innerText = "你可以说：画一幅风景画、在左边画一个红色圆形、画一个太阳、撤销、清空画布、保存图片、停止语音控制。";
+    return;
+  }
+
   if (command.includes("清空")) {
     saveCanvasState();
     clearCanvas();
@@ -134,7 +155,7 @@ function executeSingleCommand(command) {
   ) {
     saveCanvasState();
     drawLandscape();
-    message.innerText = "已随机生成一幅完整风景画。";
+    message.innerText = "已生成一幅稳定构图的随机风景画。";
   } else if (command.includes("太阳")) {
     saveCanvasState();
     drawSun(position);
@@ -279,6 +300,12 @@ function drawHouse(position) {
   drawHouseAt(point.x, point.y);
 }
 
+// 组合图案：云朵
+function drawCloud(position) {
+  const point = getCoordinates(position);
+  drawCloudAt(point.x, point.y);
+}
+
 // 组合图案：笑脸
 function drawSmile(position) {
   const point = getCoordinates(position);
@@ -310,12 +337,6 @@ function drawSmile(position) {
   ctx.lineWidth = 4;
   ctx.stroke();
   ctx.closePath();
-}
-
-// 组合图案：云朵
-function drawCloud(position) {
-  const point = getCoordinates(position);
-  drawCloudAt(point.x, point.y);
 }
 
 // 组合图案：星星
@@ -354,77 +375,87 @@ function drawStar(position) {
   ctx.stroke();
 }
 
-// 随机生成完整风景画
+// 稳定构图版随机风景画
 function drawLandscape() {
   clearCanvas();
 
-  const skyColors = ["#87ceeb", "#9bdcff", "#b3e5fc", "#a7d8ff"];
-  const grassColors = ["#7ec850", "#6abf69", "#8bc34a", "#76b852"];
-  const mountainColors = ["#8e9aaf", "#6c7a89", "#9aa5b1", "#7f8c8d"];
+  const skyColors = ["#87ceeb", "#9bdcff", "#b3e5fc"];
+  const grassColors = ["#7ec850", "#6abf69", "#8bc34a"];
   const flowerColors = ["red", "yellow", "pink", "purple", "orange", "white"];
 
   const skyColor = randomChoice(skyColors);
   const grassColor = randomChoice(grassColors);
-  const horizonY = randomInt(230, 280);
+  const horizonY = 250;
 
+  // 天空
   ctx.fillStyle = skyColor;
   ctx.fillRect(0, 0, canvas.width, horizonY);
 
+  // 草地
   ctx.fillStyle = grassColor;
   ctx.fillRect(0, horizonY, canvas.width, canvas.height - horizonY);
 
-  const sunX = randomChoice([randomInt(70, 160), randomInt(520, 630)]);
-  const sunY = randomInt(60, 120);
-  drawSunAt(sunX, sunY);
+  // 太阳：固定在左上或右上，避免遮挡主体
+  const sunPosition = randomChoice([
+    { x: 90, y: 80 },
+    { x: 590, y: 80 }
+  ]);
+  drawSunAt(sunPosition.x, sunPosition.y);
 
-  const cloudCount = randomInt(2, 4);
+  // 云朵：只在天空区域随机轻微偏移
+  const cloudPositions = [
+    { x: 230, y: 80 },
+    { x: 430, y: 100 },
+    { x: 560, y: 130 }
+  ];
+
+  const cloudCount = randomInt(2, 3);
   for (let i = 0; i < cloudCount; i++) {
-    drawCloudAt(randomInt(130, 600), randomInt(60, 140));
-  }
-
-  const mountainCount = randomInt(3, 5);
-  for (let i = 0; i < mountainCount; i++) {
-    drawMountain(
-      randomInt(80, 620),
-      horizonY,
-      randomInt(80, 150),
-      randomChoice(mountainColors)
+    const cloud = cloudPositions[i];
+    drawCloudAt(
+      cloud.x + randomInt(-20, 20),
+      cloud.y + randomInt(-10, 10)
     );
   }
 
-  const houseX = randomInt(380, 560);
-  const houseY = horizonY + randomInt(25, 45);
+  // 远山
+  drawMountain(150, horizonY, randomInt(90, 120), "#8e9aaf");
+  drawMountain(330, horizonY, randomInt(110, 145), "#6c7a89");
+  drawMountain(520, horizonY, randomInt(90, 125), "#8e9aaf");
+
+  // 小池塘：放在左下角，避免和房子、小路重叠
+  drawStablePond();
+
+  // 房子：固定在右侧中景
+  const houseX = 505 + randomInt(-15, 15);
+  const houseY = 280;
   drawHouseAt(houseX, houseY);
 
-  const treeCount = randomInt(2, 4);
-  for (let i = 0; i < treeCount; i++) {
-    const treeX = randomChoice([
-      randomInt(60, 180),
-      randomInt(560, 650),
-      randomInt(180, 320)
-    ]);
-    const treeY = horizonY + randomInt(20, 55);
-    drawTreeAt(treeX, treeY);
-  }
+  // 小路：从房子门口向下
+  drawStablePath(houseX, houseY);
 
-  if (Math.random() > 0.35) {
-    drawRandomRiver(horizonY);
-  }
+  // 树木：左右两侧
+  drawTreeAt(115 + randomInt(-10, 10), 295);
+  drawTreeAt(625 + randomInt(-10, 10), 300);
 
-  if (Math.random() > 0.3) {
-    drawRandomPath(houseX, houseY);
-  }
+  // 花朵：避开房子、小路和池塘
+  const flowerAreas = [
+    { minX: 60, maxX: 160, minY: 340, maxY: 375 },
+    { minX: 190, maxX: 290, minY: 330, maxY: 375 },
+    { minX: 585, maxX: 665, minY: 335, maxY: 375 }
+  ];
 
-  const flowerCount = randomInt(5, 10);
-  for (let i = 0; i < flowerCount; i++) {
+  for (let i = 0; i < 8; i++) {
+    const area = randomChoice(flowerAreas);
     drawFlowerAt(
-      randomInt(60, 660),
-      randomInt(horizonY + 60, 375),
+      randomInt(area.minX, area.maxX),
+      randomInt(area.minY, area.maxY),
       randomChoice(flowerColors)
     );
   }
 }
 
+// 太阳
 function drawSunAt(x, y) {
   ctx.beginPath();
   ctx.arc(x, y, 38, 0, Math.PI * 2);
@@ -444,6 +475,7 @@ function drawSunAt(x, y) {
   }
 }
 
+// 云朵
 function drawCloudAt(x, y) {
   ctx.fillStyle = "white";
 
@@ -455,6 +487,7 @@ function drawCloudAt(x, y) {
   ctx.fill();
 }
 
+// 远山
 function drawMountain(x, baseY, height, color) {
   ctx.beginPath();
   ctx.moveTo(x - 120, baseY);
@@ -475,6 +508,7 @@ function drawMountain(x, baseY, height, color) {
   ctx.fill();
 }
 
+// 房子
 function drawHouseAt(x, y) {
   ctx.fillStyle = "#f4c27a";
   ctx.fillRect(x - 60, y - 20, 120, 90);
@@ -499,6 +533,7 @@ function drawHouseAt(x, y) {
   ctx.strokeRect(x - 60, y - 20, 120, 90);
 }
 
+// 树
 function drawTreeAt(x, y) {
   ctx.fillStyle = "#8b4513";
   ctx.fillRect(x - 12, y, 24, 75);
@@ -515,53 +550,49 @@ function drawTreeAt(x, y) {
   ctx.fill();
 }
 
-function drawRandomRiver(horizonY) {
-  const startX = randomInt(280, 430);
-  const endX = randomInt(430, 620);
-
+// 小池塘
+function drawStablePond() {
   ctx.beginPath();
-  ctx.moveTo(startX, canvas.height);
-  ctx.bezierCurveTo(
-    startX + randomInt(-40, 40),
-    350,
-    startX + randomInt(20, 90),
-    310,
-    endX,
-    horizonY + randomInt(5, 30)
-  );
-
-  ctx.lineTo(endX + 60, horizonY + randomInt(15, 40));
-
-  ctx.bezierCurveTo(
-    endX - randomInt(20, 80),
-    320,
-    startX + randomInt(40, 100),
-    360,
-    startX + 80,
-    canvas.height
-  );
-
-  ctx.closePath();
+  ctx.ellipse(270, 345, 85, 35, -0.15, 0, Math.PI * 2);
   ctx.fillStyle = "#4fc3f7";
   ctx.fill();
 
   ctx.strokeStyle = "#0288d1";
   ctx.lineWidth = 3;
   ctx.stroke();
+
+  ctx.strokeStyle = "rgba(255, 255, 255, 0.8)";
+  ctx.lineWidth = 2;
+
+  ctx.beginPath();
+  ctx.moveTo(230, 338);
+  ctx.quadraticCurveTo(265, 325, 310, 338);
+  ctx.stroke();
+
+  ctx.beginPath();
+  ctx.moveTo(240, 355);
+  ctx.quadraticCurveTo(270, 345, 300, 355);
+  ctx.stroke();
 }
 
-function drawRandomPath(houseX, houseY) {
+// 小路
+function drawStablePath(houseX, houseY) {
   ctx.beginPath();
-  ctx.moveTo(houseX - 25, houseY + 70);
-  ctx.lineTo(houseX + 25, houseY + 70);
-  ctx.lineTo(houseX + randomInt(30, 90), canvas.height);
-  ctx.lineTo(houseX - randomInt(40, 100), canvas.height);
+  ctx.moveTo(houseX - 18, houseY + 70);
+  ctx.lineTo(houseX + 18, houseY + 70);
+  ctx.lineTo(houseX + 65, 400);
+  ctx.lineTo(houseX - 55, 400);
   ctx.closePath();
 
   ctx.fillStyle = "#d2b48c";
   ctx.fill();
+
+  ctx.strokeStyle = "#a67c52";
+  ctx.lineWidth = 2;
+  ctx.stroke();
 }
 
+// 花
 function drawFlowerAt(x, y, color) {
   ctx.fillStyle = "#2e7d32";
   ctx.fillRect(x - 2, y, 4, 25);
@@ -580,23 +611,35 @@ function drawFlowerAt(x, y, color) {
   ctx.fill();
 }
 
+// 随机整数
 function randomInt(min, max) {
   return Math.floor(Math.random() * (max - min + 1)) + min;
 }
 
+// 随机选择数组元素
 function randomChoice(arr) {
   return arr[Math.floor(Math.random() * arr.length)];
 }
 
+// 清空画布
 function clearCanvas() {
   ctx.clearRect(0, 0, canvas.width, canvas.height);
 }
 
+// 兼容旧清空按钮
+function clearCanvasByButton() {
+  saveCanvasState();
+  clearCanvas();
+  message.innerText = "已清空画布。";
+}
+
+// 保存当前画布状态
 function saveCanvasState() {
   const imageData = canvas.toDataURL();
   history.push(imageData);
 }
 
+// 撤销
 function undo() {
   if (history.length <= 1) {
     clearCanvas();
@@ -617,6 +660,7 @@ function undo() {
   img.src = previousState;
 }
 
+// 保存图片
 function saveImage() {
   const tempCanvas = document.createElement("canvas");
   const tempCtx = tempCanvas.getContext("2d");
@@ -636,6 +680,7 @@ function saveImage() {
   message.innerText = "已保存当前画布为图片。";
 }
 
+// 英文颜色转中文
 function getChineseColor(color) {
   if (color === "red") return "红色";
   if (color === "blue") return "蓝色";
@@ -648,6 +693,7 @@ function getChineseColor(color) {
   return "";
 }
 
+// 英文位置转中文
 function getChinesePosition(position) {
   if (position === "left") return "左边";
   if (position === "right") return "右边";
