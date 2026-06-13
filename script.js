@@ -1,55 +1,141 @@
-// 获取页面中的画布
 const canvas = document.getElementById("drawCanvas");
 const ctx = canvas.getContext("2d");
 const message = document.getElementById("message");
+const voiceText = document.getElementById("voiceText");
 
-// 用来保存每一步画布状态，方便撤销
 let history = [];
+let recognition = null;
+let isListening = false;
 
-// 页面加载后，先保存一张空白画布
 saveCanvasState();
 
-// 执行用户输入的指令
-function runCommand() {
-  const input = document.getElementById("commandInput");
-  const command = input.value.trim();
+// 启动语音控制
+function startVoiceControl() {
+  const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
 
-  if (command === "") {
-    message.innerText = "请先输入一条指令。";
+  if (!SpeechRecognition) {
+    message.innerText = "当前浏览器不支持语音识别，请使用 Chrome 或 Edge 浏览器测试。";
     return;
   }
 
-  message.innerText = "识别到指令：" + command;
+  recognition = new SpeechRecognition();
+  recognition.lang = "zh-CN";
+  recognition.continuous = true;
+  recognition.interimResults = false;
 
-  // 清空画布
+  isListening = true;
+  message.innerText = "语音控制已启动，请直接说出绘图指令。";
+
+  recognition.onresult = function (event) {
+    for (let i = event.resultIndex; i < event.results.length; i++) {
+      if (event.results[i].isFinal) {
+        const command = event.results[i][0].transcript.trim();
+
+        voiceText.innerText = "语音识别结果：" + command;
+        message.innerText = "正在执行语音指令：" + command;
+
+        runVoiceCommand(command);
+      }
+    }
+  };
+
+  recognition.onerror = function (event) {
+    message.innerText = "语音识别出现问题：" + event.error + "。请重试或检查麦克风权限。";
+  };
+
+  recognition.onend = function () {
+    if (isListening) {
+      setTimeout(() => {
+        try {
+          recognition.start();
+        } catch (error) {
+          console.log("语音识别重启中：", error);
+        }
+      }, 500);
+    }
+  };
+
+  try {
+    recognition.start();
+  } catch (error) {
+    console.log("语音识别启动中：", error);
+  }
+}
+
+// 停止语音控制
+function stopVoiceControl() {
+  isListening = false;
+
+  if (recognition) {
+    recognition.stop();
+  }
+
+  message.innerText = "语音控制已停止。";
+}
+
+// 执行语音指令
+function runVoiceCommand(command) {
+  if (!command) {
+    return;
+  }
+
+  if (
+    command.includes("停止语音") ||
+    command.includes("停止识别") ||
+    command.includes("结束语音")
+  ) {
+    stopVoiceControl();
+    return;
+  }
+
+  const commandList = splitComplexCommand(command);
+
+  for (let i = 0; i < commandList.length; i++) {
+    executeSingleCommand(commandList[i]);
+  }
+}
+
+// 拆解复杂指令
+function splitComplexCommand(command) {
+  return command
+    .replace(/，|。|；|,/g, "然后")
+    .split(/然后|接着|并且|同时|再(?=在|画|清空|撤销|保存|重新)/)
+    .map(item => item.trim())
+    .filter(item => item.length > 0);
+}
+
+// 执行单条指令
+function executeSingleCommand(command) {
   if (command.includes("清空")) {
     saveCanvasState();
     clearCanvas();
-    message.innerText = "已清空画布。";
-    input.value = "";
+    message.innerText = "已根据语音指令清空画布。";
     return;
   }
 
-  // 撤销上一步
   if (command.includes("撤销") || command.includes("返回上一步")) {
     undo();
-    input.value = "";
     return;
   }
 
-  // 保存图片
   if (command.includes("保存")) {
     saveImage();
-    input.value = "";
     return;
   }
 
-  // 判断颜色和位置
-  let color = getColor(command);
-  let position = getPosition(command);
+  const color = getColor(command);
+  const position = getPosition(command);
 
-  // 优先判断组合图案
-  if (command.includes("太阳")) {
+  if (
+    command.includes("风景") ||
+    command.includes("一幅画") ||
+    command.includes("场景") ||
+    command.includes("完整画")
+  ) {
+    saveCanvasState();
+    drawLandscape();
+    message.innerText = "已随机生成一幅完整风景画。";
+  } else if (command.includes("太阳")) {
     saveCanvasState();
     drawSun(position);
     message.innerText = "已在" + getChinesePosition(position) + "绘制一个太阳。";
@@ -89,48 +175,8 @@ function runCommand() {
     drawTriangle(color, position);
     message.innerText = "已在" + getChinesePosition(position) + "绘制一个" + getChineseColor(color) + "三角形。";
   } else {
-    message.innerText = "暂时无法识别该指令，请尝试：画一个太阳 / 画一座房子 / 画一个笑脸 / 在左边画一个红色圆形 / 保存图片";
+    message.innerText = "暂时无法识别该语音指令，请尝试：画一幅风景画 / 画一个太阳 / 撤销 / 清空画布 / 保存图片。";
   }
-
-  input.value = "";
-}
-
-// 开始语音识别
-function startVoiceRecognition() {
-  const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-
-  if (!SpeechRecognition) {
-    message.innerText = "当前浏览器不支持语音识别，请使用 Chrome 或 Edge 浏览器测试。";
-    return;
-  }
-
-  const recognition = new SpeechRecognition();
-
-  recognition.lang = "zh-CN";
-  recognition.continuous = false;
-  recognition.interimResults = false;
-
-  message.innerText = "正在聆听，请说出绘图指令，例如：画一个太阳";
-
-  recognition.start();
-
-  recognition.onresult = function (event) {
-    const voiceText = event.results[0][0].transcript;
-    const input = document.getElementById("commandInput");
-
-    input.value = voiceText;
-    message.innerText = "语音识别结果：" + voiceText;
-
-    runCommand();
-  };
-
-  recognition.onerror = function (event) {
-    message.innerText = "语音识别失败，请重试。错误信息：" + event.error;
-  };
-
-  recognition.onend = function () {
-    console.log("语音识别结束");
-  };
 }
 
 // 判断颜色
@@ -188,7 +234,7 @@ function getCoordinates(position) {
   }
 }
 
-// 画圆形
+// 基础图形：圆形
 function drawCircle(color, position) {
   const point = getCoordinates(position);
 
@@ -199,7 +245,7 @@ function drawCircle(color, position) {
   ctx.closePath();
 }
 
-// 画矩形
+// 基础图形：矩形
 function drawRectangle(color, position) {
   const point = getCoordinates(position);
 
@@ -207,7 +253,7 @@ function drawRectangle(color, position) {
   ctx.fillRect(point.x - 60, point.y - 50, 120, 100);
 }
 
-// 画三角形
+// 基础图形：三角形
 function drawTriangle(color, position) {
   const point = getCoordinates(position);
 
@@ -221,70 +267,22 @@ function drawTriangle(color, position) {
   ctx.fill();
 }
 
-// 画太阳：圆形 + 光线
+// 组合图案：太阳
 function drawSun(position) {
   const point = getCoordinates(position);
-
-  ctx.beginPath();
-  ctx.arc(point.x, point.y, 45, 0, Math.PI * 2);
-  ctx.fillStyle = "yellow";
-  ctx.fill();
-  ctx.closePath();
-
-  ctx.strokeStyle = "orange";
-  ctx.lineWidth = 4;
-
-  for (let i = 0; i < 12; i++) {
-    const angle = (Math.PI * 2 / 12) * i;
-    const startX = point.x + Math.cos(angle) * 60;
-    const startY = point.y + Math.sin(angle) * 60;
-    const endX = point.x + Math.cos(angle) * 85;
-    const endY = point.y + Math.sin(angle) * 85;
-
-    ctx.beginPath();
-    ctx.moveTo(startX, startY);
-    ctx.lineTo(endX, endY);
-    ctx.stroke();
-  }
+  drawSunAt(point.x, point.y);
 }
 
-// 画房子：墙体 + 屋顶 + 门 + 窗户
+// 组合图案：房子
 function drawHouse(position) {
   const point = getCoordinates(position);
-
-  // 墙体
-  ctx.fillStyle = "#f4c27a";
-  ctx.fillRect(point.x - 70, point.y - 20, 140, 100);
-
-  // 屋顶
-  ctx.beginPath();
-  ctx.moveTo(point.x - 90, point.y - 20);
-  ctx.lineTo(point.x, point.y - 100);
-  ctx.lineTo(point.x + 90, point.y - 20);
-  ctx.closePath();
-  ctx.fillStyle = "#c0392b";
-  ctx.fill();
-
-  // 门
-  ctx.fillStyle = "#8b4513";
-  ctx.fillRect(point.x - 20, point.y + 25, 40, 55);
-
-  // 窗户
-  ctx.fillStyle = "#87ceeb";
-  ctx.fillRect(point.x - 55, point.y + 5, 30, 30);
-  ctx.fillRect(point.x + 25, point.y + 5, 30, 30);
-
-  // 边框
-  ctx.strokeStyle = "#333";
-  ctx.lineWidth = 2;
-  ctx.strokeRect(point.x - 70, point.y - 20, 140, 100);
+  drawHouseAt(point.x, point.y);
 }
 
-// 画笑脸：脸 + 眼睛 + 嘴巴
+// 组合图案：笑脸
 function drawSmile(position) {
   const point = getCoordinates(position);
 
-  // 脸
   ctx.beginPath();
   ctx.arc(point.x, point.y, 70, 0, Math.PI * 2);
   ctx.fillStyle = "yellow";
@@ -294,21 +292,18 @@ function drawSmile(position) {
   ctx.stroke();
   ctx.closePath();
 
-  // 左眼
   ctx.beginPath();
   ctx.arc(point.x - 25, point.y - 20, 8, 0, Math.PI * 2);
   ctx.fillStyle = "black";
   ctx.fill();
   ctx.closePath();
 
-  // 右眼
   ctx.beginPath();
   ctx.arc(point.x + 25, point.y - 20, 8, 0, Math.PI * 2);
   ctx.fillStyle = "black";
   ctx.fill();
   ctx.closePath();
 
-  // 嘴巴
   ctx.beginPath();
   ctx.arc(point.x, point.y + 5, 35, 0, Math.PI);
   ctx.strokeStyle = "black";
@@ -317,25 +312,13 @@ function drawSmile(position) {
   ctx.closePath();
 }
 
-// 画云朵：多个圆形组合
+// 组合图案：云朵
 function drawCloud(position) {
   const point = getCoordinates(position);
-
-  ctx.fillStyle = "#dff6ff";
-
-  ctx.beginPath();
-  ctx.arc(point.x - 50, point.y + 10, 35, 0, Math.PI * 2);
-  ctx.arc(point.x - 15, point.y - 15, 45, 0, Math.PI * 2);
-  ctx.arc(point.x + 30, point.y, 40, 0, Math.PI * 2);
-  ctx.arc(point.x + 65, point.y + 15, 30, 0, Math.PI * 2);
-  ctx.fill();
-
-  ctx.strokeStyle = "#7f8c8d";
-  ctx.lineWidth = 2;
-  ctx.stroke();
+  drawCloudAt(point.x, point.y);
 }
 
-// 画星星
+// 组合图案：星星
 function drawStar(position) {
   const point = getCoordinates(position);
   const outerRadius = 70;
@@ -363,6 +346,7 @@ function drawStar(position) {
 
   ctx.lineTo(point.x, point.y - outerRadius);
   ctx.closePath();
+
   ctx.fillStyle = "gold";
   ctx.fill();
   ctx.strokeStyle = "orange";
@@ -370,25 +354,249 @@ function drawStar(position) {
   ctx.stroke();
 }
 
-// 清空画布
+// 随机生成完整风景画
+function drawLandscape() {
+  clearCanvas();
+
+  const skyColors = ["#87ceeb", "#9bdcff", "#b3e5fc", "#a7d8ff"];
+  const grassColors = ["#7ec850", "#6abf69", "#8bc34a", "#76b852"];
+  const mountainColors = ["#8e9aaf", "#6c7a89", "#9aa5b1", "#7f8c8d"];
+  const flowerColors = ["red", "yellow", "pink", "purple", "orange", "white"];
+
+  const skyColor = randomChoice(skyColors);
+  const grassColor = randomChoice(grassColors);
+  const horizonY = randomInt(230, 280);
+
+  ctx.fillStyle = skyColor;
+  ctx.fillRect(0, 0, canvas.width, horizonY);
+
+  ctx.fillStyle = grassColor;
+  ctx.fillRect(0, horizonY, canvas.width, canvas.height - horizonY);
+
+  const sunX = randomChoice([randomInt(70, 160), randomInt(520, 630)]);
+  const sunY = randomInt(60, 120);
+  drawSunAt(sunX, sunY);
+
+  const cloudCount = randomInt(2, 4);
+  for (let i = 0; i < cloudCount; i++) {
+    drawCloudAt(randomInt(130, 600), randomInt(60, 140));
+  }
+
+  const mountainCount = randomInt(3, 5);
+  for (let i = 0; i < mountainCount; i++) {
+    drawMountain(
+      randomInt(80, 620),
+      horizonY,
+      randomInt(80, 150),
+      randomChoice(mountainColors)
+    );
+  }
+
+  const houseX = randomInt(380, 560);
+  const houseY = horizonY + randomInt(25, 45);
+  drawHouseAt(houseX, houseY);
+
+  const treeCount = randomInt(2, 4);
+  for (let i = 0; i < treeCount; i++) {
+    const treeX = randomChoice([
+      randomInt(60, 180),
+      randomInt(560, 650),
+      randomInt(180, 320)
+    ]);
+    const treeY = horizonY + randomInt(20, 55);
+    drawTreeAt(treeX, treeY);
+  }
+
+  if (Math.random() > 0.35) {
+    drawRandomRiver(horizonY);
+  }
+
+  if (Math.random() > 0.3) {
+    drawRandomPath(houseX, houseY);
+  }
+
+  const flowerCount = randomInt(5, 10);
+  for (let i = 0; i < flowerCount; i++) {
+    drawFlowerAt(
+      randomInt(60, 660),
+      randomInt(horizonY + 60, 375),
+      randomChoice(flowerColors)
+    );
+  }
+}
+
+function drawSunAt(x, y) {
+  ctx.beginPath();
+  ctx.arc(x, y, 38, 0, Math.PI * 2);
+  ctx.fillStyle = "yellow";
+  ctx.fill();
+  ctx.closePath();
+
+  ctx.strokeStyle = "orange";
+  ctx.lineWidth = 4;
+
+  for (let i = 0; i < 12; i++) {
+    const angle = (Math.PI * 2 / 12) * i;
+    ctx.beginPath();
+    ctx.moveTo(x + Math.cos(angle) * 50, y + Math.sin(angle) * 50);
+    ctx.lineTo(x + Math.cos(angle) * 75, y + Math.sin(angle) * 75);
+    ctx.stroke();
+  }
+}
+
+function drawCloudAt(x, y) {
+  ctx.fillStyle = "white";
+
+  ctx.beginPath();
+  ctx.arc(x - 45, y + 10, 28, 0, Math.PI * 2);
+  ctx.arc(x - 10, y - 10, 38, 0, Math.PI * 2);
+  ctx.arc(x + 35, y, 32, 0, Math.PI * 2);
+  ctx.arc(x + 65, y + 12, 25, 0, Math.PI * 2);
+  ctx.fill();
+}
+
+function drawMountain(x, baseY, height, color) {
+  ctx.beginPath();
+  ctx.moveTo(x - 120, baseY);
+  ctx.lineTo(x, baseY - height);
+  ctx.lineTo(x + 120, baseY);
+  ctx.closePath();
+
+  ctx.fillStyle = color;
+  ctx.fill();
+
+  ctx.beginPath();
+  ctx.moveTo(x - 35, baseY - height + 35);
+  ctx.lineTo(x, baseY - height);
+  ctx.lineTo(x + 35, baseY - height + 35);
+  ctx.closePath();
+
+  ctx.fillStyle = "white";
+  ctx.fill();
+}
+
+function drawHouseAt(x, y) {
+  ctx.fillStyle = "#f4c27a";
+  ctx.fillRect(x - 60, y - 20, 120, 90);
+
+  ctx.beginPath();
+  ctx.moveTo(x - 80, y - 20);
+  ctx.lineTo(x, y - 90);
+  ctx.lineTo(x + 80, y - 20);
+  ctx.closePath();
+  ctx.fillStyle = "#c0392b";
+  ctx.fill();
+
+  ctx.fillStyle = "#8b4513";
+  ctx.fillRect(x - 18, y + 25, 36, 45);
+
+  ctx.fillStyle = "#87ceeb";
+  ctx.fillRect(x - 48, y + 5, 28, 28);
+  ctx.fillRect(x + 20, y + 5, 28, 28);
+
+  ctx.strokeStyle = "#333";
+  ctx.lineWidth = 2;
+  ctx.strokeRect(x - 60, y - 20, 120, 90);
+}
+
+function drawTreeAt(x, y) {
+  ctx.fillStyle = "#8b4513";
+  ctx.fillRect(x - 12, y, 24, 75);
+
+  ctx.beginPath();
+  ctx.arc(x, y - 20, 45, 0, Math.PI * 2);
+  ctx.fillStyle = "#2ecc71";
+  ctx.fill();
+
+  ctx.beginPath();
+  ctx.arc(x - 30, y, 35, 0, Math.PI * 2);
+  ctx.arc(x + 30, y, 35, 0, Math.PI * 2);
+  ctx.fillStyle = "#27ae60";
+  ctx.fill();
+}
+
+function drawRandomRiver(horizonY) {
+  const startX = randomInt(280, 430);
+  const endX = randomInt(430, 620);
+
+  ctx.beginPath();
+  ctx.moveTo(startX, canvas.height);
+  ctx.bezierCurveTo(
+    startX + randomInt(-40, 40),
+    350,
+    startX + randomInt(20, 90),
+    310,
+    endX,
+    horizonY + randomInt(5, 30)
+  );
+
+  ctx.lineTo(endX + 60, horizonY + randomInt(15, 40));
+
+  ctx.bezierCurveTo(
+    endX - randomInt(20, 80),
+    320,
+    startX + randomInt(40, 100),
+    360,
+    startX + 80,
+    canvas.height
+  );
+
+  ctx.closePath();
+  ctx.fillStyle = "#4fc3f7";
+  ctx.fill();
+
+  ctx.strokeStyle = "#0288d1";
+  ctx.lineWidth = 3;
+  ctx.stroke();
+}
+
+function drawRandomPath(houseX, houseY) {
+  ctx.beginPath();
+  ctx.moveTo(houseX - 25, houseY + 70);
+  ctx.lineTo(houseX + 25, houseY + 70);
+  ctx.lineTo(houseX + randomInt(30, 90), canvas.height);
+  ctx.lineTo(houseX - randomInt(40, 100), canvas.height);
+  ctx.closePath();
+
+  ctx.fillStyle = "#d2b48c";
+  ctx.fill();
+}
+
+function drawFlowerAt(x, y, color) {
+  ctx.fillStyle = "#2e7d32";
+  ctx.fillRect(x - 2, y, 4, 25);
+
+  ctx.fillStyle = color;
+  ctx.beginPath();
+  ctx.arc(x - 8, y, 7, 0, Math.PI * 2);
+  ctx.arc(x + 8, y, 7, 0, Math.PI * 2);
+  ctx.arc(x, y - 8, 7, 0, Math.PI * 2);
+  ctx.arc(x, y + 8, 7, 0, Math.PI * 2);
+  ctx.fill();
+
+  ctx.beginPath();
+  ctx.arc(x, y, 5, 0, Math.PI * 2);
+  ctx.fillStyle = "yellow";
+  ctx.fill();
+}
+
+function randomInt(min, max) {
+  return Math.floor(Math.random() * (max - min + 1)) + min;
+}
+
+function randomChoice(arr) {
+  return arr[Math.floor(Math.random() * arr.length)];
+}
+
 function clearCanvas() {
   ctx.clearRect(0, 0, canvas.width, canvas.height);
 }
 
-// 点击按钮清空画布
-function clearCanvasByButton() {
-  saveCanvasState();
-  clearCanvas();
-  message.innerText = "已通过按钮清空画布。";
-}
-
-// 保存当前画布状态
 function saveCanvasState() {
   const imageData = canvas.toDataURL();
   history.push(imageData);
 }
 
-// 撤销上一步
 function undo() {
   if (history.length <= 1) {
     clearCanvas();
@@ -409,7 +617,6 @@ function undo() {
   img.src = previousState;
 }
 
-// 保存画布为图片
 function saveImage() {
   const tempCanvas = document.createElement("canvas");
   const tempCtx = tempCanvas.getContext("2d");
@@ -417,11 +624,8 @@ function saveImage() {
   tempCanvas.width = canvas.width;
   tempCanvas.height = canvas.height;
 
-  // 添加白色背景，避免保存出来是透明背景
   tempCtx.fillStyle = "white";
   tempCtx.fillRect(0, 0, tempCanvas.width, tempCanvas.height);
-
-  // 把当前画布内容画到临时画布上
   tempCtx.drawImage(canvas, 0, 0);
 
   const link = document.createElement("a");
@@ -432,7 +636,6 @@ function saveImage() {
   message.innerText = "已保存当前画布为图片。";
 }
 
-// 英文颜色转中文
 function getChineseColor(color) {
   if (color === "red") return "红色";
   if (color === "blue") return "蓝色";
@@ -445,7 +648,6 @@ function getChineseColor(color) {
   return "";
 }
 
-// 英文位置转中文
 function getChinesePosition(position) {
   if (position === "left") return "左边";
   if (position === "right") return "右边";
