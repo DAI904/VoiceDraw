@@ -2,28 +2,30 @@
 <html lang="zh-CN">
 <head>
   <meta charset="UTF-8">
-  <title>VoiceDraw AI 语音绘图助手</title>
+  <title>VoiceDraw AI 纯语音绘图助手</title>
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
-  <h1>VoiceDraw AI 语音绘图助手</h1>
+  <h1>VoiceDraw AI 纯语音绘图助手</h1>
 
   <p class="desc">
-    支持文字或语音输入绘图指令，例如：在左边画一个红色圆形、在右边画一个蓝色矩形、画一个太阳、画一座房子、画一个笑脸
+    本工具支持纯语音控制绘图。启动语音控制后，可以说：画一幅风景画、画一个太阳、在左边画一座房子、撤销、清空画布、保存图片。
   </p>
 
   <div class="control-box">
-    <input id="commandInput" type="text" placeholder="请输入绘图指令">
-    <button onclick="runCommand()">执行指令</button>
-    <button onclick="startVoiceRecognition()">开始语音识别</button>
-    <button onclick="undo()">撤销</button>
-    <button onclick="clearCanvasByButton()">清空画布</button>
-    <button onclick="saveImage()">保存图片</button>
+    <button onclick="startVoiceControl()">启动语音控制</button>
+    <button onclick="stopVoiceControl()">停止语音控制</button>
   </div>
 
   <canvas id="drawCanvas" width="700" height="400"></canvas>
 
-  <p id="message">等待输入指令...</p>
+  <p id="message">请点击“启动语音控制”，授权麦克风后开始语音绘图。</p>
+
+  <p id="voiceText">语音识别结果：暂无</p>
+
+  <p class="desc">
+    支持复杂指令示例：画一幅风景画，然后在左边画一个太阳，再在右边画一朵云。
+  </p>
 
   <script src="script.js"></script>
 </body>
