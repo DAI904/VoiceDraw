@@ -203,7 +203,9 @@ docs/design.md
 
 ## 十三、Demo 视频
 
-Demo 视频链接：待补充
+Demo 视频链接：通过网盘分享的文件：VoiceDraw语音绘图Demo展示.mp4
+链接: https://pan.baidu.com/s/1G7E9Og2Li7JlzfRQA431vQ?pwd=572d 提取码: 572d 
+--来自百度网盘超级会员v5的分享
 
 ## 十四、后续优化方向
 
